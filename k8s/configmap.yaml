@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opendj
+data:
+  add_base_entry: "--addBaseEntry" # if set, creates base DN entry
+  port: "1389"  # LDAP Listener Port
+  ldaps_port: "1636" # LDAPS Listener Port
+  base_dn: "dc=example,dc=com" # OpenDJ Base DN
+  root_user_dn: "cn=Directory Manager"  # Initial root user DN
+  # secret_volume: # Mounted keystore volume, if present copies keystore over
+  # master_server: # Replication master server
+  # version: "LATEST" # OpenDJ version
+  # opendj_user: # user which runs OpenDJ
+  #
+  # OpenDJ Replication type, valid values are:
+  # simple - standart replication
+  # srs - standalone replication servers
+  # sdsr - Standalone Directory Server Replicas
+  # rg - Replication Groups
+  opendj_replication_type: "simple"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opendj-java-properties
+data:
+  java.properties: |
+    ldifdiff.java-args=-server
+    overwrite-env-java-home=false
+    overwrite-env-java-args=false
+    start-ds.java-args=-server -Xms2g -Xmx4g
+    import-ldif.offline.java-args=-server
+
+    manage-account.java-args=-Xms8m -client
+    encode-password.java-args=-server
+    create-rc-script.java-args=-Xms8m -client
+    base64.java-args=-Xms8m -client
+    backup.offline.java-args=-server
+    control-panel.java-args=-Xms64m -Xmx128m -client
+    dsreplication.offline.java-args=-server
+    ldappasswordmodify.java-args=-Xms8m -client
+    export-ldif.online.java-args=-Xms8m -client
+    list-backends.java-args=-Xms8m -client
+    verify-index.java-args=-server
+    backup.online.java-args=-Xms8m -client
+    stop-ds.java-args=-Xms8m -client
+    uninstall.java-args=-Xms8m -client
+    restore.offline.java-args=-server
+    ldifmodify.java-args=-server
+    ldapcompare.java-args=-Xms8m -client
+    import-ldif.online.java-args=-Xms8m -client
+    backendstat.java-args=-server
+    upgrade.java-args=-server
+    restore.online.java-args=-Xms8m -client
+    ldapmodify.java-args=-Xms8m -client
+    dsconfig.java-args=-Xms8m -client
+    rebuild-index.java-args=-server
+    ldapsearch.java-args=-Xms8m -client
+    ldifsearch.java-args=-server
+    manage-tasks.java-args=-Xms8m -client
+    makeldif.java-args=-server
+    export-ldif.offline.java-args=-server
+    setup.java-args=-Xms8m -client
+    dsreplication.java-args=-Xms8m -client
+    ldapdelete.java-args=-Xms8m -client
+    status.java-args=-Xms8m -clientopendj

@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ldap
+  labels:
+    name: ldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ldap
+  template:
+    metadata:
+      labels:
+        app: ldap
+    spec:
+      containers:
+        - name: opendj
+          image: openidentityplatform/opendj:4.4.7
+          ports:
+          - name: ldap
+            containerPort: 1389
+          - name: ldaps
+            containerPort: 1636
+          - name: admin
+            containerPort: 4444
+          env:
+          - name: ADD_BASE_ENTRY
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: add_base_entry
+          - name: PORT
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: port
+          - name: LDAPS_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: ldaps_port
+          - name: BASE_DN
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: base_dn
+          - name: ROOT_USER_DN
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: root_user_dn
+          - name: ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: opendj
+                key: root_password
+          - name: OPENDJ_REPLICATION_TYPE
+            valueFrom:
+              configMapKeyRef:
+                name: opendj
+                key: opendj_replication_type
+          volumeMounts:
+            - name: java-properties
+              mountPath: /opt/opendj/data/config/java.properties
+              subPath: java.properties
+      volumes:
+        - name: java-properties
+          configMap:
+            name: opendj-java-properties
