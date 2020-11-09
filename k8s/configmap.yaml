@@ -64,4 +64,4 @@ data:
     setup.java-args=-Xms8m -client
     dsreplication.java-args=-Xms8m -client
     ldapdelete.java-args=-Xms8m -client
-    status.java-args=-Xms8m -clientopendj
+    status.java-args=-Xms8m -client

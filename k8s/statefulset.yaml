@@ -1,22 +1,33 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: ldap
+  name: opendj
   labels:
-    name: ldap
+    name: opendj
 spec:
+  serviceName: opendj
   replicas: 1
   selector:
     matchLabels:
-      app: ldap
+      app: opendj
   template:
     metadata:
       labels:
-        app: ldap
+        app: opendj
     spec:
+      initContainers:
+      - name: volume-mount
+        image: busybox
+        command: ["sh", "-c", "chown -R 1001:999 /data"]
+        volumeMounts:
+          - name: opendj-data
+            mountPath: /data
       containers:
         - name: opendj
           image: openidentityplatform/opendj:4.4.7
+          resources:
+            requests:
+              memory: 2Gi
           ports:
           - name: ldap
             containerPort: 1389
@@ -61,10 +72,16 @@ spec:
                 name: opendj
                 key: opendj_replication_type
           volumeMounts:
-            - name: java-properties
-              mountPath: /opt/opendj/data/config/java.properties
-              subPath: java.properties
+          - name: opendj-data
+            mountPath: /opt/opendj/data
+          - name: java-properties
+            mountPath: /tmp/java.properties
+            subPath: java.properties
+            readOnly: true
       volumes:
-        - name: java-properties
-          configMap:
-            name: opendj-java-properties
+      - name: opendj-data
+        persistentVolumeClaim:
+          claimName: opendj-local
+      - name: java-properties
+        configMap:
+          name: opendj-java-properties

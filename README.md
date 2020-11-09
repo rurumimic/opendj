@@ -76,36 +76,96 @@ Not currently support network file systems such as NFS for database storage.
 
 ---
 
-## Install
+## Deploy
 
 ### Kubernetes
 
 - docker image: [openidentityplatform/opendj](https://hub.docker.com/r/openidentityplatform/opendj/)
 - [How To Run OpenDJ in Kubernetes](https://github.com/OpenIdentityPlatform/OpenDJ/wiki/How-To-Run-OpenDJ-in-Kubernetes)
 
-#### Create OpenDJ Service
+### Before
+
+Create a directory:
 
 ```bash
+mkdir -p -m 777 /tmp/kube/pv/opendj
+```
+
+[persistvolume.yaml](k8s/persistvolume.yaml) line 22:`kubernetes.io/hostname`
+
+```bash
+kubectl get nodes --show-labels
+```
+
+### Create OpenDJ Service
+
+```bash
+kubectl apply -f k8s/storageclass.yaml
+kubectl apply -f k8s/persistentvolume.yaml
+kubectl apply -f k8s/persistentvolumeclaim.yaml
 kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/statefulset.yaml
 kubectl apply -f k8s/service.yaml
 ```
 
-#### Pods
+### Pods
 
 ```bash
-kubectl get pods -l="app=ldap"
+kubectl get pods -l="app=opendj"
 
-NAME                    READY   STATUS    RESTARTS   AGE
-ldap-756cc94559-vcbzr   1/1     Running   0          8m34s
+NAME       READY   STATUS    RESTARTS   AGE
+opendj-0   1/1     Running   0          9m58s
 ```
 
-#### Status
+### Update Java Properties & Restart a Pod
+
+Update `java.properties`:
 
 ```bash
-kubectl exec -it $(kubectl get pods -l="app=ldap" -o name) \
--- /opt/opendj/bin/status --bindDN "cn=Directory Manager" --bindPassword password
+kubectl exec -it $(kubectl get pods -l="app=opendj" -o name) \
+-- cp /tmp/java.properties /opt/opendj/data/config
+```
+
+Restart:
+
+```bash
+kubectl exec -it $(kubectl get pods -l="app=opendj" -o name) \
+-- /opt/opendj/bin/stop-ds --restart
+```
+
+---
+
+## Clean up
+
+```bash
+kubectl delete -f k8s/service.yaml
+kubectl delete -f k8s/statefulset.yaml
+kubectl delete -f k8s/configmap.yaml
+kubectl delete -f k8s/secret.yaml
+kubectl delete -f k8s/persistentvolumeclaim.yaml
+kubectl delete -f k8s/persistentvolume.yaml
+kubectl delete -f k8s/storageclass.yaml
+```
+
+```bash
+rm -rf /tmp/kube
+```
+
+---
+
+## Usage
+
+Access to container:
+
+```bash
+kubectl exec -it $(kubectl get pods -l="app=opendj" -o name) -- bash
+```
+
+### Status
+
+```bash
+/opt/opendj/bin/status --bindDN "cn=Directory Manager" --bindPassword password
 ```
 
 ```bash
@@ -114,7 +174,7 @@ Server Run Status:        Started
 Open Connections:         1
 
           --- Server Details ---
-Host Name:                ldap-756cc94559-vcbzr
+Host Name:                opendj-0.opendj.default.svc.cluster.local
 Administrative Users:     cn=Directory Manager
 Installation Path:        /opt/opendj
 Instance Path:            /opt/opendj/data
@@ -138,51 +198,9 @@ Entries:     0
 Replication:
 ```
 
-#### Add a directory
+### Add a directory
 
-```bash
-kubectl exec -it $(kubectl get pods -l="app=ldap" -o name) -- bash
-```
-
-```bash
-/opt/opendj/bin/dsconfig \
---port 4444 \
---hostname $(/bin/hostname -f) \
---bindDN "cn=Directory Manager" \
---bindPassword password \
---no-prompt \
---trustAll \
---batch <<EOF
-create-backend --backend-name newBackend \
---type pdb \
---set base-dn:"dc=example,dc=org" \
---set db-cache-percent:20 \
---set enabled:true
-
-create-backend-index --backend-name newBackend \
---type generic \
---set index-type:equality \
---set index-type:substring \
---index-name cn
-
-create-backend-index --backend-name newBackend \
---type generic \
---set index-type:equality \
---set index-type:substring \
---index-name sn
-
-create-backend-index --backend-name newBackend \
---type generic \
---set index-type:equality \
---index-name uid
-
-create-backend-index --backend-name newBackend \
---type generic \
---set index-type:equality \
---set index-type:substring \
---index-name mail
-EOF
-```
+Create a LDIF file:
 
 `sample.ldif`:
 
@@ -214,6 +232,8 @@ homeDirectory: /home/users/keanu
 loginShell: /bin/bash" > /tmp/sample.ldif
 ```
 
+Add directory data:
+
 ```bash
 /opt/opendj/bin/import-ldif \
 --bindDN "cn=Directory Manager" \
@@ -224,21 +244,51 @@ loginShell: /bin/bash" > /tmp/sample.ldif
 --trustAll
 ```
 
-#### List all indexes
+### List all indexes
+
+List all data:
 
 ```bash
-/opt/opendj/bin/dsconfig \
-list-backend-indexes \
---port 4444 \
---hostname $(/bin/hostname -f) \
+/opt/opendj/bin/ldapsearch \
+--port 1389 \
+--baseDN dc=example,dc=com \
 --bindDN "cn=Directory Manager" \
 --bindPassword password \
---backend-name userRoot \
---no-prompt \
---trustAll
+"(objectclass=*)"
+```
+
+### LDAP Client
+
+on the Host machine:
+
+#### List all
+
+```bash
+ldapsearch -x -w password -H ldap://localhost:31389 -D "cn=Directory Manager" "objectclass=*" -b dc=example,dc=com
+```
+
+#### Search Keanu
+
+```bash
+ldapsearch -x -w password -H ldap://localhost:31389 -D "cn=Directory Manager" uid=keanu -b dc=example,dc=com
 ```
 
 ```bash
-kubectl exec -it $(kubectl get pods -l="app=ldap" -o name) \
--- /opt/opendj/bin/backendstat show-index-status --backendID userRoot --baseDN dc=example,dc=com
+# extended LDIF
+#
+# LDAPv3
+# base <> (default) with scope subtree
+# filter: uid=keanu
+# requesting: -b dc=example,dc=com 
+#
+
+# Keanu Reeves, people, example.com
+dn: cn=Keanu Reeves,ou=people,dc=example,dc=com
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 2
+# numEntries: 1
 ```

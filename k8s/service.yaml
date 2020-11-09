@@ -1,21 +1,24 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ldap
+  name: opendj
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
-    app: ldap
+    app: opendj
   ports:
     - protocol: TCP
       name: ldap
       port: 1389
       targetPort: 1389
+      nodePort: 31389
     - protocol: TCP
       name: ldaps
       port: 1636
       targetPort: 1636
+      nodePort: 31636
     - protocol: TCP
       name: admin
       port: 4444
       targetPort: 4444
+      nodePort: 31444
